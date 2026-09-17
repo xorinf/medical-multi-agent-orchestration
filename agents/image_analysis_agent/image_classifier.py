@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import base64
 from mimetypes import guess_type
@@ -33,7 +34,7 @@ class ImageClassifier:
 
         return f"data:{mime_type};base64,{base64_encoded_data}"
     
-    def classify_image(self, image_path: str) -> str:
+    def classify_image(self, image_path: str) -> dict:
         """Analyzes the image to classify it as a medical image and determine it's type."""
         print(f"[ImageAnalyzer] Analyzing image: {image_path}")
 
@@ -59,12 +60,21 @@ class ImageClassifier:
         # Invoke LLM to classify the image
         response = self.vision_model.invoke(vision_prompt)
 
+        # ponytail: vision model wraps output in <think>...</think> blocks.
+        # Strip them before JSON parsing so JsonOutputParser doesn't choke.
+        raw = re.sub(r"<think>.*?</think>", "", response.content,
+                     flags=re.DOTALL | re.IGNORECASE).strip()
         try:
             # Ensure the response is parsed as JSON
-            response_json = self.json_parser.parse(response.content)
+            response_json = self.json_parser.parse(raw)
             return response_json  # Returns a dictionary instead of a string
-        except json.JSONDecodeError:
+        except Exception:
+            # ponytail: catch BOTH json.JSONDecodeError and LangChain's
+            # OutputParserException (the JsonOutputParser actually raises the
+            # latter). Falling back to "NON-MEDICAL" with zero confidence is
+            # safer than 500ing the chat endpoint.
             print("[ImageAnalyzer] Warning: Response was not valid JSON.")
-            return {"image_type": "unknown", "reasoning": "Invalid JSON response", "confidence": 0.0}
+            return {"image_type": "NON-MEDICAL", "reasoning": "Invalid JSON response",
+                    "confidence": 0.0}
 
         # return response.content.strip().lower()

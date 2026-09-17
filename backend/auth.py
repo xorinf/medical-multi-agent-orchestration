@@ -43,6 +43,17 @@ def hash_pw(password: str) -> str:
 
 
 def check_pw(password: str, stored: str) -> bool:
+    """Accept both current 'salt$iters$hash' and legacy {'salt','hash'} dict."""
+    if isinstance(stored, dict):
+        # legacy shape: {"salt": hex, "hash": hex}
+        try:
+            return hashlib.pbkdf2_hmac("sha256", password.encode(),
+                                       bytes.fromhex(stored["salt"]),
+                                       120_000).hex() == stored["hash"]
+        except (KeyError, ValueError):
+            return False
+    if not isinstance(stored, str) or "$" not in stored:
+        return False
     try:
         salt_hex, iters, hash_hex = stored.split("$")
         dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), int(iters))

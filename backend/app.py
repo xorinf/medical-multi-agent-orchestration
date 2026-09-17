@@ -180,7 +180,13 @@ def login():
     email = (body.get("email") or "").strip().lower()
     password = body.get("password") or ""
     u = dbm.users().find_one({"email": email})
-    if not u or not check_pw(password, u["pw_hash"]):
+    # ponytail: legacy seeded users stored pw as {"salt","hash"} dict; new
+    # users store as "pw_hash" string. check_pw handles both shapes — but
+    # we have to look up the right key first.
+    stored_pw = u.get("pw_hash")
+    if stored_pw is None and isinstance(u.get("pw"), dict):
+        stored_pw = u["pw"]
+    if not u or not check_pw(password, stored_pw):
         audit.write("login.failed", actor_id=u["_id"] if u else None, request=request,
                     target={"type": "user", "id": email})
         return jsonify({"error": "invalid_credentials"}), 401
