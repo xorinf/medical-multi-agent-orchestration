@@ -72,31 +72,40 @@ export default function PatientChat() {
     if (!txt && !image) return
     setBusy(true); setErr('')
 
+    let uploaded = null
+    if (image) {
+      // ponytail: upload FIRST so the optimistic bubble can show a real
+      // /uploads/<file_id> URL that survives reloads (blob: URLs don't).
+      try {
+        const fd = new FormData()
+        fd.append('file', image)
+        uploaded = await apiFetch('/chat/upload', { method: 'POST', body: fd })
+      } catch (e) {
+        setErr('upload failed: ' + e.message)
+        setBusy(false)
+        return
+      }
+    }
+
+    const useExisting = active !== 'new'
     // ponytail: optimistically append the patient bubble so the user sees their
     // own message immediately, before the agent finishes.
-    const useExisting = active !== 'new'
     setConv(prev => {
       const base = prev || { _id: null, messages: [] }
       return {
         ...base,
         messages: [
           ...(base.messages || []),
-          { role: 'patient', content: txt, image_url: image ? URL.createObjectURL(image) : null,
+          { role: 'patient', content: txt, image_url: uploaded?.url || null,
             ts: new Date().toISOString() },
         ],
       }
     })
 
     try {
-      let body
-      if (image) {
-        const fd = new FormData()
-        fd.append('file', image)
-        const up = await apiFetch('/chat/upload', { method: 'POST', body: fd })
-        body = { text: txt, image_file_id: up.file_id, conversation_id: useExisting ? active : undefined }
-      } else {
-        body = { text: txt, conversation_id: useExisting ? active : undefined }
-      }
+      const body = uploaded
+        ? { text: txt, image_file_id: uploaded.file_id, conversation_id: useExisting ? active : undefined }
+        : { text: txt, conversation_id: useExisting ? active : undefined }
       const resp = await apiFetch('/chat', { method: 'POST', body: JSON.stringify(body) })
       setActive(resp.conversation_id)
       setInput(''); setImage(null)
