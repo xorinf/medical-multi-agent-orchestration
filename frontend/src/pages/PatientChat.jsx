@@ -26,6 +26,10 @@ function ThinkingBlock({ text }) {
 
 function Bubble({ m }) {
   if (m.role === 'patient') {
+    // ponytail: prefer the server URL (survives reload); fall back to a
+    // blob: URL if the message came straight from the optimistic add before
+    // the upload finished. Both render the same image — src swap is what
+    // matters, not which kind of URL.
     return (
       <div className="bubble bubble-you">
         {m.image_url && <img src={m.image_url} alt="" />}
@@ -48,6 +52,7 @@ export default function PatientChat() {
   const [conv, setConv] = useState(null)
   const [input, setInput] = useState('')
   const [image, setImage] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)  // blob: URL for composer preview
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -72,33 +77,40 @@ export default function PatientChat() {
     if (!txt && !image) return
     setBusy(true); setErr('')
 
+    // ponytail: keep a blob: URL around as a fallback preview. If the upload
+    // fails for any reason the optimistic bubble still shows the user's image.
+    const blobUrl = image ? URL.createObjectURL(image) : null
+
     let uploaded = null
     if (image) {
-      // ponytail: upload FIRST so the optimistic bubble can show a real
-      // /uploads/<file_id> URL that survives reloads (blob: URLs don't).
       try {
         const fd = new FormData()
         fd.append('file', image)
         uploaded = await apiFetch('/chat/upload', { method: 'POST', body: fd })
+        console.log('[chat] upload ok', uploaded)
       } catch (e) {
+        console.error('[chat] upload failed', e)
         setErr('upload failed: ' + e.message)
         setBusy(false)
         return
       }
+    } else {
+      console.log('[chat] send without image, image state:', image)
     }
 
     const useExisting = active !== 'new'
     // ponytail: optimistically append the patient bubble so the user sees their
-    // own message immediately, before the agent finishes.
+    // own message immediately. Prefer the server URL (survives reload); fall
+    // back to the blob URL if upload failed.
+    const previewUrl = uploaded?.url || blobUrl
     setConv(prev => {
       const base = prev || { _id: null, messages: [] }
+      const newBubble = { role: 'patient', content: txt, image_url: previewUrl,
+                          ts: new Date().toISOString() }
+      console.log('[chat] optimistic bubble:', newBubble)
       return {
         ...base,
-        messages: [
-          ...(base.messages || []),
-          { role: 'patient', content: txt, image_url: uploaded?.url || null,
-            ts: new Date().toISOString() },
-        ],
+        messages: [...(base.messages || []), newBubble],
       }
     })
 
@@ -108,7 +120,7 @@ export default function PatientChat() {
         : { text: txt, conversation_id: useExisting ? active : undefined }
       const resp = await apiFetch('/chat', { method: 'POST', body: JSON.stringify(body) })
       setActive(resp.conversation_id)
-      setInput(''); setImage(null)
+      setInput(''); setImage(null); setImagePreview(null)
       await loadThreads()
       await loadConv(resp.conversation_id)
     } catch (e) { setErr(e.message) }
@@ -164,9 +176,25 @@ export default function PatientChat() {
         </div>
         {err && <div className="err" style={{ padding: '0 12px' }}>{err}</div>}
         <div className="composer">
+          {imagePreview && (
+            <div className="attach-preview">
+              <img src={imagePreview} alt="attached" />
+              <button type="button" className="attach-clear" aria-label="Remove image"
+                      onClick={() => { setImage(null); setImagePreview(null) }}>×</button>
+            </div>
+          )}
           <label className="btn btn-outline attach">
             <input type="file" accept="image/png,image/jpeg" style={{ display: 'none' }}
-                   onChange={e => setImage(e.target.files?.[0] || null)} />
+                   onChange={e => {
+                     // ponytail: clear value so re-selecting the SAME file
+                     // still fires onChange (browsers suppress duplicate picks
+                     // otherwise — common cause of "image didn't attach" UX bug).
+                     const f = e.target.files?.[0] || null
+                     e.target.value = ''
+                     setImage(f)
+                     if (imagePreview) URL.revokeObjectURL(imagePreview)
+                     setImagePreview(f ? URL.createObjectURL(f) : null)
+                   }} />
             {image ? '✓ image' : '📎 image'}
           </label>
           <textarea className="input" placeholder="Ask a medical question…"

@@ -337,9 +337,13 @@ p { margin: 0; }
   max-height: 300px;
   overflow: auto;
 }
-.composer { display: flex; gap: 8px; padding: 16px; border-top: 1px solid var(--color-line); background: var(--color-paper); }
+.composer { display: flex; gap: 8px; padding: 16px; border-top: 1px solid var(--color-line); background: var(--color-paper); flex-wrap: wrap; align-items: flex-end; }
 .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; }
 .attach { display: inline-flex; align-items: center; cursor: pointer; }
+.attach-preview { position: relative; display: inline-flex; align-items: center; padding: 4px 8px 4px 4px; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-bg-2); }
+.attach-preview img { max-height: 56px; max-width: 80px; border-radius: var(--radius-sm); display: block; }
+.attach-clear { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border: 1px solid var(--color-line); background: var(--color-paper); border-radius: 999px; line-height: 0; font-size: 14px; cursor: pointer; padding: 0; }
+.attach-clear:hover { background: var(--color-bg-2); }
 
 /* === Doctor === */
 .doctor { display: grid; grid-template-columns: 360px 1fr; gap: 20px;
