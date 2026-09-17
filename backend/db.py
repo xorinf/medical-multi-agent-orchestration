@@ -72,6 +72,14 @@ def email_verifications() -> Collection:
     return db()["email_verifications"]
 
 
+def upload_registry() -> Collection:
+    # ponytail: tracks {file_id -> uploader_id, conversation_id?} so that
+    # /uploads/<file_id> can be authorized without requiring the image to be
+    # already referenced inside a chat message (needed for the optimistic
+    # patient bubble that shows the uploaded image before /chat is called).
+    return db()["upload_registry"]
+
+
 # ponytail: ensure_indexes is idempotent. Called once on app startup. Adding an
 # index for a new field = add the line here; do not sprinkle create_index()
 # calls through route handlers.
@@ -94,3 +102,5 @@ def ensure_indexes() -> None:
     password_resets().create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
     email_verifications().create_index([("token_hash", ASCENDING)], unique=True)
     email_verifications().create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
+    upload_registry().create_index([("file_id", ASCENDING)], unique=True)
+    upload_registry().create_index([("uploader_id", ASCENDING), ("created_at", ASCENDING)])

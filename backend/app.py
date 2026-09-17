@@ -228,7 +228,9 @@ def refresh():
 def logout():
     tok = request.cookies.get(COOKIE_NAME)
     if tok:
-        revoke_refresh_session(tok)
+        # ponytail: rotate_refresh_session atomically revokes the token.
+        # We don't care about the returned session doc on logout.
+        rotate_refresh_session(tok)
     resp = make_response(jsonify({"ok": True}))
     _clear_refresh_cookie(resp)
     return resp
@@ -322,6 +324,12 @@ def chat_upload():
     name = f"{uuid.uuid4()}.{ext}"
     dest = UPLOAD_DIR / name
     f.save(dest)
+    # ponytail: track uploader so /uploads/<file_id> can auth before the
+    # message is POSTed to /chat (optimistic UI shows the image first).
+    dbm.upload_registry().insert_one({
+        "file_id": name, "uploader_id": u["_id"],
+        "role": u["role"], "created_at": datetime.now(timezone.utc),
+    })
     return jsonify({"file_id": name, "url": f"/uploads/{name}"})
 
 
@@ -469,6 +477,13 @@ def uploads(fname):
         return jsonify({"error": "not_found"}), 404
 
     if u["role"] == "admin":
+        return send_from_directory(UPLOAD_DIR, safe)
+
+    # ponytail: first check the upload registry — the uploader can always
+    # preview their own upload before the message that references it has been
+    # POSTed to /chat. Falls through to chat-ownership check after.
+    own = dbm.upload_registry().find_one({"file_id": safe, "uploader_id": u["_id"]})
+    if own:
         return send_from_directory(UPLOAD_DIR, safe)
 
     # Patient: must own a conversation that references this file.
