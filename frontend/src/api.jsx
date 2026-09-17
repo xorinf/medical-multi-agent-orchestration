@@ -15,15 +15,25 @@ export function apiFetch(path, opts = {}) {
     headers,
   })
 
+  // ponytail: share one in-flight refresh across concurrent 401s. Without
+  // this, every parallel request after token expiry fans out its own
+  // /auth/refresh and we race on the rotating refresh session.
+  let refreshInflight = null
+  const doRefresh = async () => {
+    if (!refreshInflight) {
+      refreshInflight = fetch(API + '/auth/refresh', { method: 'POST', credentials: 'include' })
+        .finally(() => { refreshInflight = null })
+    }
+    return refreshInflight
+  }
+
   return doFetch().then(async r => {
     if (r.status === 204) return null
     const ct = r.headers.get('content-type') || ''
     const data = ct.includes('json') ? await r.json().catch(() => ({})) : await r.text()
     if (r.status === 401 && !path.includes('/auth/')) {
       // try refresh once
-      const rr = await fetch(API + '/auth/refresh', { method: 'POST', credentials: 'include' })
-      // ponytail: use rr's own response body for the error, not `data` (which
-      // is the original 401 — gives wrong error message).
+      const rr = await doRefresh()
       if (!rr.ok) {
         let refreshErr = 'unauthorized'
         try {

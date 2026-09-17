@@ -37,7 +37,7 @@ function TopBar() {
           <NavTab to="/appointments">Appointments</NavTab>
         </>}
         {user?.role === 'admin' && <>
-          <NavTab to="/admin">System</NavTab>
+          <NavTab to="/admin" end>System</NavTab>
           <NavTab to="/admin/pending">Pending</NavTab>
           <NavTab to="/admin/users">Users</NavTab>
           <NavTab to="/admin/audit">Audit</NavTab>
@@ -50,8 +50,8 @@ function TopBar() {
   )
 }
 
-function NavTab({ to, children }) {
-  return <NavLink to={to} className={({isActive}) => 'btn btn-ghost ' + (isActive ? 'btn-ghost-active' : '')}>{children}</NavLink>
+function NavTab({ to, end = false, children }) {
+  return <NavLink to={to} end={end} className={({isActive}) => 'btn btn-ghost ' + (isActive ? 'btn-ghost-active' : '')}>{children}</NavLink>
 }
 
 function Protected({ role, children }) {

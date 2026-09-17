@@ -1,7 +1,7 @@
 """Doctor-facing services: directory, matching, appointments."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from .. import db as dbm
@@ -84,6 +84,24 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+def _scheduled_in_future(appointment: dict) -> bool:
+    """True if scheduled_at is at least 1 minute in the future.
+
+    ponytail: tiny skew tolerance keeps the route usable across clock drift
+    between client and server. The same guard is reused by the patient
+    cancel route, so the rule lives in one place.
+    """
+    sched = appointment.get("scheduled_at")
+    if not isinstance(sched, datetime):
+        try:
+            sched = datetime.fromisoformat(sched)
+        except (TypeError, ValueError):
+            return False
+    if sched.tzinfo is None:
+        sched = sched.replace(tzinfo=timezone.utc)
+    return sched > datetime.now(timezone.utc) + timedelta(minutes=1)
+
+
 def update_appointment(appointment_id: str, doctor_id: str, patch: dict) -> tuple[bool, str]:
     """Returns (success, error_code). error_code is '' on success."""
     allowed_keys = {"status", "notes_from_doctor"}
@@ -98,14 +116,37 @@ def update_appointment(appointment_id: str, doctor_id: str, patch: dict) -> tupl
             return False, "bad_status_value"
         current = dbm.appointments().find_one(
             {"_id": appointment_id, "doctor_id": doctor_id},
-            {"status": 1},
+            {"status": 1, "scheduled_at": 1},
         )
         if not current:
             return False, "not_found"
         if new_status not in ALLOWED_TRANSITIONS.get(current.get("status"), set()):
             return False, "bad_transition"
+        # ponytail: cannot cancel a past appointment — both doctor and
+        # patient cancel paths share this rule.
+        if new_status == "cancelled" and not _scheduled_in_future(current):
+            return False, "past_appointment"
     if "notes_from_doctor" in safe and len(safe["notes_from_doctor"]) > 2000:
         return False, "notes_too_long"
 
     r = dbm.appointments().update_one({"_id": appointment_id, "doctor_id": doctor_id}, {"$set": safe})
+    return r.matched_count > 0, ""
+
+
+def cancel_appointment_as_patient(appointment_id: str, patient_id: str) -> tuple[bool, str]:
+    """Patient-initiated cancellation. Same past-date guard as the doctor
+    path, but does not allow notes changes."""
+    appt = dbm.appointments().find_one(
+        {"_id": appointment_id, "patient_id": patient_id},
+        {"status": 1, "scheduled_at": 1})
+    if not appt:
+        return False, "not_found"
+    if appt.get("status") not in {"pending", "confirmed"}:
+        return False, "bad_transition"
+    if not _scheduled_in_future(appt):
+        return False, "past_appointment"
+    r = dbm.appointments().update_one(
+        {"_id": appointment_id, "patient_id": patient_id},
+        {"$set": {"status": "cancelled", "cancelled_by": "patient",
+                  "cancelled_at": datetime.now(timezone.utc)}})
     return r.matched_count > 0, ""

@@ -35,7 +35,7 @@ config = Config()
 memory = MemorySaver()
 
 # Specify a thread
-thread_config = {"configurable": {"thread_id": "1"}}
+thread_config = {"configurable": {"thread_id": "default"}}
 
 
 # Agent that takes the decision of routing the request further to correct task specific agent
@@ -683,7 +683,8 @@ def init_agent_state() -> AgentState:
     }
 
 
-def process_query(query: Union[str, Dict], conversation_history: List[BaseMessage] = None) -> str:
+def process_query(query: Union[str, Dict], conversation_history: List[BaseMessage] = None,
+                  thread_id: str = "default") -> str:
     """
     Process a user query through the agent decision system.
     
@@ -718,7 +719,10 @@ def process_query(query: Union[str, Dict], conversation_history: List[BaseMessag
     state["messages"] = [HumanMessage(content=query)]
 
     # result = graph.invoke(state, thread_config)
-    result = graph.invoke(state, thread_config)
+    # ponytail: thread_id is per-conversation so concurrent requests don't
+    # clobber each other's LangGraph checkpoint state.
+    cfg = {"configurable": {"thread_id": thread_id}}
+    result = graph.invoke(state, cfg)
     # print("######### DEBUG 4:", result)
     # state["messages"] = [result["messages"][-1].content]
 

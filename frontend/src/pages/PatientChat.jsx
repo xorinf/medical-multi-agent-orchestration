@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '../api'
 import { Button, Spinner } from '../ui'
 
@@ -55,11 +55,18 @@ export default function PatientChat() {
   const [imagePreview, setImagePreview] = useState(null)  // blob: URL for composer preview
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // ponytail: when send() loads the new conversation itself, mark the next
+  // active-change as "already loaded" so the effect doesn't double-fetch.
+  const skipNextLoadRef = useRef(false)
 
   useEffect(() => { loadThreads() }, [])
   useEffect(() => {
-    if (active && active !== 'new') loadConv(active)
-    else setConv(null)
+    if (active && active !== 'new') {
+      if (skipNextLoadRef.current) { skipNextLoadRef.current = false; return }
+      loadConv(active).catch(() => {})
+    } else {
+      setConv(null)
+    }
   }, [active])
 
   async function loadThreads() {
@@ -119,8 +126,11 @@ export default function PatientChat() {
         ? { text: txt, image_file_id: uploaded.file_id, conversation_id: useExisting ? active : undefined }
         : { text: txt, conversation_id: useExisting ? active : undefined }
       const resp = await apiFetch('/chat', { method: 'POST', body: JSON.stringify(body) })
+      skipNextLoadRef.current = true   // ponytail: we already loaded below
       setActive(resp.conversation_id)
-      setInput(''); setImage(null); setImagePreview(null)
+      setInput(''); setImage(null)
+      if (imagePreview) URL.revokeObjectURL(imagePreview)  // ponytail: free the blob
+      setImagePreview(null)
       await loadThreads()
       await loadConv(resp.conversation_id)
     } catch (e) { setErr(e.message) }

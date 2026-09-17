@@ -51,8 +51,10 @@ import re as _re
 _THINK_RE = _re.compile(r"<think>(.*?)</think>", _re.DOTALL | _re.IGNORECASE)
 
 
-def _split_thinking(raw: str) -> dict:
+def _split_thinking(raw) -> dict:
     """Return {answer, thinking}: answer strips <think> blocks; thinking holds them."""
+    if raw is None:
+        return {"answer": "", "thinking": ""}
     if not isinstance(raw, str):
         raw = str(raw)
     blocks = _THINK_RE.findall(raw)
@@ -371,6 +373,16 @@ def chat():
             img_path = UPLOAD_DIR / image_file_id
             if not img_path.exists():
                 return jsonify({"error": "image_not_found"}), 400
+            # ponytail: privacy gate — only the uploader, an admin, or the
+            # doctor on a case referencing this image may pair it with text.
+            # Without this any patient can send another patient's medical image.
+            own = dbm.upload_registry().find_one(
+                {"file_id": image_file_id, "uploader_id": u["_id"]})
+            on_chat = dbm.chats().find_one(
+                {"messages.image_url": f"/uploads/{image_file_id}",
+                 "$or": [{"patient_id": u["_id"]}, {"doctor_id": u["_id"]}]})
+            if not own and not on_chat and u["role"] != "admin":
+                return jsonify({"error": "image_forbidden"}), 403
             # ponytail: reject obviously corrupt images here (wrong magic
             # bytes) with a clear 400 so the UI doesn't show "agent failed"
             # for what's really a user-supplied bad file.
@@ -379,13 +391,21 @@ def chat():
             if not (head.startswith(b"\x89PNG\r\n\x1a\n") or head.startswith(b"\xff\xd8\xff")):
                 return jsonify({"error": "image_format_invalid",
                                 "reason": "file is not a valid PNG or JPEG"}), 400
-            out = process_query({"text": text, "image": str(img_path)})
+            out = process_query({"text": text, "image": str(img_path)},
+                                thread_id=conv_id)
             image_url = f"/uploads/{image_file_id}"
         else:
-            out = process_query(text)
+            out = process_query(text, thread_id=conv_id)
             image_url = None
         agent_name = out.get("agent_name", "")
-        content = _split_thinking(out["messages"][-1].content)
+        # ponytail: messages[-1] can IndexError if the graph ended at END
+        # without appending an AI message (e.g., pure guardrail bypass).
+        msgs = out.get("messages") or []
+        last = next((m for m in reversed(msgs) if hasattr(m, "content")), None)
+        if last is None:
+            return jsonify({"error": "agent_no_response",
+                            "reason": "agent pipeline produced no AI message"}), 500
+        content = _split_thinking(last.content)
     except Exception as e:
         # ponytail: full exception text in detail leaks internals (paths,
         # URLs, sometimes key fragments). Log full server-side; return a
@@ -611,6 +631,23 @@ def appointments_patch(appointment_id):
     audit.write("appointment.updated", actor_id=u["_id"], request=request,
                 target={"type": "appointment", "id": appointment_id},
                 detail={"patch": list(body.keys())})
+    return jsonify({"ok": True})
+
+
+@app.post("/api/appointments/<appointment_id>/cancel")
+def appointments_cancel(appointment_id):
+    # ponytail: patients need a cancel path. Reuses the same past-date guard
+    # as the doctor PATCH so the rule lives in one place (doctors.py).
+    u, err = require_auth(request, role="patient")
+    if err:
+        return err
+    ok, code = doctor_svc.cancel_appointment_as_patient(appointment_id, u["_id"])
+    if not ok:
+        status = 404 if code == "not_found" else 400
+        return jsonify({"error": code}), status
+    audit.write("appointment.cancelled", actor_id=u["_id"], request=request,
+                target={"type": "appointment", "id": appointment_id},
+                detail={"by": "patient"})
     return jsonify({"ok": True})
 
 
