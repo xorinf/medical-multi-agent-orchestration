@@ -6,10 +6,13 @@
 """
 from __future__ import annotations
 
+import io
 import json
 import time
 import uuid
+import http.client
 
+from PIL import Image
 from pymongo import MongoClient
 
 import urllib.error
@@ -21,6 +24,7 @@ BASE = 'http://127.0.0.1:5050'
 API_PREFIX = '/api'
 MONGO = 'mongodb://127.0.0.1:27018'
 PW = 'testpass1'
+DOC_PW = 'pw1234'
 
 
 def req(method, path, data=None, files=None, token=None, timeout=240):
@@ -125,6 +129,41 @@ check('uploads rejects anonymous', status == 401, status)
 # patient who uploaded should be able to view
 status, _ = req('GET', '/uploads/' + file_id, token=ptok)
 check('uploads accessible to owner', status == 200, status)
+
+# 5b. /api/chat refuses another user's image_file_id
+print('[chat image privacy]')
+e2 = f'p2_{int(time.time()*1000) % 10**10}@x.com'
+s, _ = req('POST', '/auth/register', {'email': e2, 'password': PW, 'role': 'patient', 'name': 'P2'})
+assert s == 201, f'register failed: {s}'
+_, p2 = req('POST', '/auth/login', {'email': e2, 'password': PW})
+p2tok = p2['access_token']
+buf2 = io.BytesIO(); Image.new('RGB', (32,32), (10,10,10)).save(buf2, 'PNG')
+boundary = '----x'
+body2 = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="p.png"\r\n'
+         f'Content-Type: image/png\r\n\r\n').encode() + buf2.getvalue() + f'\r\n--{boundary}--\r\n'.encode()
+conn = http.client.HTTPConnection('127.0.0.1', 5050)
+conn.request('POST', '/api/chat/upload', body2,
+    {'Authorization': f'Bearer {p2tok}', 'Content-Type': f'multipart/form-data; boundary={boundary}'})
+p2_file = json.loads(conn.getresponse().read())['file_id']
+# p1 tries p2's file_id — must be 403
+status, body = req('POST', '/chat', {'text': 'using p2 image', 'image_file_id': p2_file}, token=ptok)
+check('image privacy: p1 cant use p2 file_id', status == 403, status)
+
+# 5c. Patient cancel route + past-date guard
+print('[patient appointment cancel]')
+_, dr = req('POST', '/auth/login', {'email': 'doc1@x.com', 'password': DOC_PW})
+future_iso = '2027-06-01T10:00:00Z'
+s, b = req('POST', '/appointments', {'doctor_id': dr['user']['id'],
+                                       'scheduled_at': future_iso,
+                                       'duration_min': 30,
+                                       'reason_for_visit': 'checkup'}, token=ptok)
+assert s == 201, f'booking failed: {s} {b}'
+appt_id = b['id']
+status, _ = req('POST', f'/appointments/{appt_id}/cancel', token=ptok)
+check('patient cancel future appt', status == 200, status)
+# cancelling the already-cancelled — 400
+status, _ = req('POST', f'/appointments/{appt_id}/cancel', token=ptok)
+check('patient cancel already-cancelled rejected', status == 400, status)
 
 # 6. Pending-verification doctor cannot log in
 print('[pending doctor login gate]')
