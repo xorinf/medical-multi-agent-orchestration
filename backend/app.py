@@ -884,4 +884,7 @@ def admin_stats():
 
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", "5050"))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    # ponytail: threaded=True so a slow LLM call doesn't block the next
+    # chat request, and so a request that times out at the proxy (Vite
+    # disconnects after ~30s) doesn't kill the Werkzeug worker.
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

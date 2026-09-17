@@ -8,8 +8,8 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     proxy: {
-      '/api':    'http://127.0.0.1:5050',
-      '/uploads': 'http://127.0.0.1:5050',
+      '/api':    { target: 'http://127.0.0.1:5050', timeout: 300_000, changeOrigin: true },
+      '/uploads':{ target: 'http://127.0.0.1:5050', timeout: 300_000, changeOrigin: true },
     },
   },
 })
