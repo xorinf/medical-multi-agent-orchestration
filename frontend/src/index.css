@@ -1,0 +1,7 @@
+/* Reset + base. Tokens + components live in ui.css. */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: #fafafa; color: #111;
+       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+       font-size: 14px; line-height: 1.45; }
+h1, h2, h3, h4, p { margin: 0; }

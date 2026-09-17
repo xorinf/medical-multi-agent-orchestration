@@ -1,0 +1,111 @@
+"""Doctor-facing services: directory, matching, appointments."""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Optional
+
+from .. import db as dbm
+
+
+def list_doctors(specialty: str = "", city: str = "", q: str = "") -> list:
+    # ponytail: only return verified doctors to patient-facing queries.
+    # Unverified doctors exist in the DB but are hidden from search.
+    flt = {"verified_at": {"$ne": None}}
+    if specialty:
+        flt["specialty"] = specialty
+    if city:
+        flt["city"] = city
+    out = []
+    for d in dbm.doctors().find(flt).limit(200):
+        out.append({
+            "id": d["_id"], "name": d.get("name", ""), "specialty": d.get("specialty", ""),
+            "city": d.get("city", ""), "rating": d.get("rating", 0.0),
+            "cases_count": d.get("cases_count", 0), "bio": d.get("bio", ""),
+            "verified": d.get("verified_at") is not None,
+        })
+    if q:
+        ql = q.lower()
+        out = [d for d in out if ql in d["name"].lower() or ql in d["bio"].lower()]
+    return out
+
+
+def get_doctor(doctor_id: str) -> Optional[dict]:
+    d = dbm.doctors().find_one({"_id": doctor_id})
+    if not d:
+        return None
+    return {
+        "id": d["_id"], "name": d.get("name", ""), "specialty": d.get("specialty", ""),
+        "city": d.get("city", ""), "rating": d.get("rating", 0.0),
+        "cases_count": d.get("cases_count", 0), "bio": d.get("bio", ""),
+        "verified": d.get("verified_at") is not None,
+        "availability": d.get("availability", []),
+    }
+
+
+def create_appointment(patient_id: str, doctor_id: str, scheduled_at: datetime,
+                       duration_min: int, notes: str = "") -> dict:
+    aid = str(__import__("uuid").uuid4())
+    doc = {
+        "_id": aid, "patient_id": patient_id, "doctor_id": doctor_id,
+        "scheduled_at": scheduled_at, "duration_min": duration_min or 30,
+        "notes_from_patient": notes, "notes_from_doctor": "",
+        "status": "pending", "created_at": datetime.now(timezone.utc),
+    }
+    dbm.appointments().insert_one(doc)
+    return {"id": aid, "status": doc["status"]}
+
+
+def list_appointments(user_id: str, role: str, status: str = "") -> list:
+    flt = {"patient_id" if role == "patient" else "doctor_id": user_id}
+    if status:
+        flt["status"] = status
+    out = []
+    for a in dbm.appointments().find(flt).sort("scheduled_at", -1).limit(100):
+        out.append({
+            "id": a["_id"], "patient_id": a["patient_id"], "doctor_id": a["doctor_id"],
+            "scheduled_at": a["scheduled_at"].isoformat(),
+            "duration_min": a.get("duration_min", 30),
+            "notes_from_patient": a.get("notes_from_patient", ""),
+            "notes_from_doctor": a.get("notes_from_doctor", ""),
+            "status": a["status"],
+        })
+    return out
+
+
+# ponytail: whitelist both the keys and the allowed status values. A doctor
+# can: pending→confirmed, *→cancelled, *→completed. Otherwise 400. Notes
+# are free-form but capped at 2000 chars server-side too.
+ALLOWED_STATUS = {"pending", "confirmed", "completed", "cancelled"}
+ALLOWED_TRANSITIONS = {
+    "pending":   {"confirmed", "cancelled"},
+    "confirmed": {"completed", "cancelled"},
+    "completed": set(),
+    "cancelled": set(),
+}
+
+
+def update_appointment(appointment_id: str, doctor_id: str, patch: dict) -> tuple[bool, str]:
+    """Returns (success, error_code). error_code is '' on success."""
+    allowed_keys = {"status", "notes_from_doctor"}
+    safe = {k: v for k, v in patch.items() if k in allowed_keys}
+    if not safe:
+        return False, "no_fields"
+
+    # If status is being changed, validate the transition against current state.
+    if "status" in safe:
+        new_status = safe["status"]
+        if new_status not in ALLOWED_STATUS:
+            return False, "bad_status_value"
+        current = dbm.appointments().find_one(
+            {"_id": appointment_id, "doctor_id": doctor_id},
+            {"status": 1},
+        )
+        if not current:
+            return False, "not_found"
+        if new_status not in ALLOWED_TRANSITIONS.get(current.get("status"), set()):
+            return False, "bad_transition"
+    if "notes_from_doctor" in safe and len(safe["notes_from_doctor"]) > 2000:
+        return False, "notes_too_long"
+
+    r = dbm.appointments().update_one({"_id": appointment_id, "doctor_id": doctor_id}, {"$set": safe})
+    return r.matched_count > 0, ""
