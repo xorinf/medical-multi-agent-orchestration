@@ -365,6 +365,14 @@ def chat():
             img_path = UPLOAD_DIR / image_file_id
             if not img_path.exists():
                 return jsonify({"error": "image_not_found"}), 400
+            # ponytail: reject obviously corrupt images here (wrong magic
+            # bytes) with a clear 400 so the UI doesn't show "agent failed"
+            # for what's really a user-supplied bad file.
+            with open(img_path, "rb") as _f:
+                head = _f.read(12)
+            if not (head.startswith(b"\x89PNG\r\n\x1a\n") or head.startswith(b"\xff\xd8\xff")):
+                return jsonify({"error": "image_format_invalid",
+                                "reason": "file is not a valid PNG or JPEG"}), 400
             out = process_query({"text": text, "image": str(img_path)})
             image_url = f"/uploads/{image_file_id}"
         else:
@@ -374,11 +382,14 @@ def chat():
         content = _split_thinking(out["messages"][-1].content)
     except Exception as e:
         # ponytail: full exception text in detail leaks internals (paths,
-        # URLs, sometimes key fragments). Log full server-side; return generic.
+        # URLs, sometimes key fragments). Log full server-side; return a
+        # stable error code plus a short reason so the UI can render a
+        # useful message (instead of a generic "agent failed").
         app.logger.exception("chat agent error")
+        detail = {"error": str(e)[:200]}
         audit.write("chat.agent_error", actor_id=u["_id"], request=request,
-                    target={"type": "chat", "id": conv_id}, detail={"error": str(e)[:300]})
-        return jsonify({"error": "agent_failed"}), 500
+                    target={"type": "chat", "id": conv_id}, detail=detail)
+        return jsonify({"error": "agent_failed", "reason": detail["error"]}), 500
 
     now = datetime.now(timezone.utc)
     user_msg = {"role": "patient", "content": text, "image_url": image_url, "ts": now}

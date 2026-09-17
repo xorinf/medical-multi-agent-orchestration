@@ -47,7 +47,10 @@ export function apiFetch(path, opts = {}) {
       const ct2 = rr2.headers.get('content-type') || ''
       return ct2.includes('json') ? rr2.json() : rr2.text()
     }
-    if (!r.ok) throw new Error((data && data.error) || `HTTP ${r.status}`)
+    if (!r.ok) {
+      const msg = (data && (data.reason || data.error)) || `HTTP ${r.status}`
+      throw new Error(msg)
+    }
     return data
   })
 }
