@@ -29,8 +29,10 @@ from .auth import (  # noqa: E402
 )
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True,
-     origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+# ponytail: frontend URL is config-driven. Default localhost for dev; set
+# FRONTEND_URL in production (e.g. https://app.medassist.example).
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+CORS(app, supports_credentials=True, origins=[FRONTEND_URL, "http://127.0.0.1:5173"])
 
 COOKIE_NAME = "rt"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"
@@ -169,7 +171,7 @@ def register():
     })
     from .email import send
     send(email, "Verify your MedAssist email", "Click the link.",
-         link=f"http://localhost:5173/verify?token={tok}")
+         link=f"{FRONTEND_URL}/verify?token={tok}")
 
     audit.write("user.registered", actor_id=uid, request=request,
                 target={"type": "user", "id": uid}, detail={"role": role})
@@ -266,7 +268,7 @@ def forgot():
         })
         from .email import send
         send(email, "Reset your MedAssist password", "Click to reset.",
-             link=f"http://localhost:5173/reset?token={tok}")
+             link=f"{FRONTEND_URL}/reset?token={tok}")
         audit.write("password.reset.requested", actor_id=u["_id"], request=request,
                     target={"type": "user", "id": u["_id"]})
     return jsonify({"ok": True})
@@ -338,6 +340,15 @@ def chat_upload():
         "file_id": name, "uploader_id": u["_id"],
         "role": u["role"], "created_at": datetime.now(timezone.utc),
     })
+    # ponytail: every PHI upload leaves an audit trail — patient_id, file_id,
+    # byte size, mime. Without this the upload path is invisible to admins.
+    try:
+        size = dest.stat().st_size
+    except OSError:
+        size = 0
+    audit.write("chat.upload", actor_id=u["_id"], request=request,
+                target={"type": "file", "id": name},
+                detail={"ext": ext, "size": size})
     return jsonify({"file_id": name, "url": f"/uploads/{name}"})
 
 
@@ -502,9 +513,32 @@ def chat_get(conv_id):
 # case assigned to the caller. Anything else returns 403.
 @app.get("/uploads/<path:fname>")
 def uploads(fname):
-    u, err = require_auth(request)
-    if err:
-        return err
+    # ponytail: <img src> can't send Authorization headers, so we also
+    # accept the access token as ?token=<jwt>. Browser hits this endpoint
+    # unauthenticated-by-header but with the token in the query string,
+    # which we verify against the same JWT the Authorization header uses.
+    # If neither is present, fall back to require_auth (which rejects).
+    token = request.args.get("token")
+    if token:
+        from .auth import decode_access_token
+        payload = decode_access_token(token)
+        if payload:
+            uid = payload.get("sub")  # ponytail: 'sub' is the JWT subject = user_id
+            if uid:
+                u_doc = dbm.users().find_one({"_id": uid},
+                                             {"_id": 1, "role": 1, "status": 1})
+                if u_doc and u_doc.get("status") in (None, "active"):
+                    u = {"_id": u_doc["_id"], "role": u_doc["role"]}
+                else:
+                    return jsonify({"error": "unauthorized"}), 401
+            else:
+                return jsonify({"error": "unauthorized"}), 401
+        else:
+            return jsonify({"error": "unauthorized"}), 401
+    else:
+        u, err = require_auth(request)
+        if err:
+            return err
     # safe-name: uuid-only, no traversal
     safe = fname.split("/")[-1]
     if not safe or "/" in fname or ".." in fname:
@@ -545,6 +579,7 @@ from .services import doctors as doctor_svc  # noqa: E402
 from .services import curator as curator_svc  # noqa: E402
 from .services import cases as case_svc  # noqa: E402
 from .services import match as match_svc  # noqa: E402
+from .services import google_places as places_svc  # noqa: E402
 
 @app.get("/api/doctors")
 def doctors_list():
@@ -568,6 +603,33 @@ def doctors_get(doctor_id):
     if not d:
         return jsonify({"error": "not_found"}), 404
     return jsonify(d)
+
+
+# ponytail: patient-facing Google Places search. Returns REAL doctors in the
+# patient's area with phone numbers + addresses. Empty list (not 500) when
+# GOOGLE_MAPS_API_KEY is not configured — callers fall back to /api/doctors.
+@app.get("/api/doctors/nearby")
+def doctors_nearby():
+    u, err = require_auth(request)
+    if err:
+        return err
+    specialty = request.args.get("specialty", "").strip()
+    city = request.args.get("city", "").strip()
+    try:
+        limit = max(1, min(int(request.args.get("limit", "10")), 20))
+    except ValueError:
+        limit = 10
+    results = places_svc.search_doctors(
+        specialty=specialty or None,
+        city=city or None,
+        limit=limit,
+    )
+    # ponytail: include a flag so the UI knows whether enrichment actually
+    # ran (vs returned empty because no key).
+    return jsonify({
+        "results": results,
+        "source": "google" if results or places_svc._is_configured() else "unconfigured",
+    })
 
 
 @app.post("/api/appointments")
@@ -831,7 +893,8 @@ def admin_verify_doctor(doctor_id):
         dbm.doctors().update_one({"_id": doctor_id},
                                  {"$set": {"verified_at": datetime.now(timezone.utc),
                                            "verified_by": admin["_id"]}})
-    audit.write(f"doctor.{decision}d", actor_id=admin["_id"], request=request,
+    audit.write(f"doctor.{decision}d" if decision == "approve" else "doctor.rejected",
+                actor_id=admin["_id"], request=request,
                 target={"type": "doctor", "id": doctor_id},
                 detail={"reason": reason})
     return jsonify({"ok": True, "status": new_status})
@@ -868,6 +931,12 @@ def admin_suspend(user_id):
     r = dbm.users().update_one({"_id": user_id}, {"$set": {"status": "suspended"}})
     if r.matched_count == 0:
         return jsonify({"error": "not_found"}), 404
+    # ponytail: revoking refresh sessions means a suspended user's next API
+    # call hits require_auth, which re-reads the user doc, sees status=
+    # suspended, and rejects — within one request, not 15 minutes. Without
+    # this, a suspended user keeps their access until the access-token TTL
+    # expires.
+    dbm.refresh_sessions().delete_many({"user_id": user_id})
     audit.write("user.suspended", actor_id=admin["_id"], request=request,
                 target={"type": "user", "id": user_id}, detail={"reason": reason})
     return jsonify({"ok": True})

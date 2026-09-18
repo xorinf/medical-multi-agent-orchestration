@@ -54,6 +54,14 @@ export default function DoctorQueue() {
     } catch (e) { setErr(e.message) }
   }
 
+  async function validate(decision) {
+    if (!active) return
+    try {
+      await apiFetch('/cases/' + active + '/validate', { method: 'POST', body: JSON.stringify({ decision }) })
+      await loadCase(active)
+    } catch (e) { setErr(e.message) }
+  }
+
   return (
     <div className="doctor">
       <aside className="doctor-side">
@@ -101,13 +109,30 @@ export default function DoctorQueue() {
               {case_.messages.map((m, i) => (
                 <div key={i} className={'bubble ' + (m.role === 'doctor' ? 'bubble-you' : 'bubble-agent')}
                      style={{ marginBottom: 8 }}>
-                  {m.role !== 'doctor' && m.image_url && <img src={m.image_url} alt="" />}
+                  {m.role !== 'doctor' && m.image_url && (
+                    <a href={`${m.image_url}${m.image_url.includes('?') ? '&' : '?'}token=${localStorage.getItem('access_token') || ''}`} target="_blank" rel="noopener noreferrer">
+                      <img src={`${m.image_url}${m.image_url.includes('?') ? '&' : '?'}token=${localStorage.getItem('access_token') || ''}`} alt="" />
+                    </a>
+                  )}
                   {m.content}
                   <div className="bubble-meta">{m.role}{m.agent ? ` · ${m.agent}` : ''} · {new Date(m.ts).toLocaleString()}</div>
                 </div>
               ))}
             </Card>
             <Card>
+              {/* ponytail: clinical validation buttons live HERE — the
+                  assigned doctor makes the yes/no call on the AI's
+                  medical output. Patient only sees a notice in their chat. */}
+              {case_.messages?.some(m => m.role === 'agent' && (m.agent || '').endsWith('HUMAN_VALIDATION')) &&
+               !case_.human_validations?.some(v => v.decision) && (
+                <div className="col" style={{ marginBottom: 12 }}>
+                  <div className="meta">Clinical validation required.</div>
+                  <div className="row">
+                    <Button variant="primary" onClick={() => validate('approve')}>Approve AI analysis</Button>
+                    <Button variant="danger" onClick={() => validate('reject')}>Reject</Button>
+                  </div>
+                </div>
+              )}
               <div className="col">
                 <Textarea label="Add a note (visible to you; not auto-shared)" value={note} onChange={e => setNote(e.target.value)} />
                 <Button variant="primary" onClick={addNote} disabled={!note.trim()}>Add note</Button>

@@ -26,17 +26,22 @@ function ThinkingBlock({ text }) {
 }
 
 function Bubble({ m }) {
-  // ponytail: onError fallback swaps a broken src for a clickable link so
-  // the user can still open the image in a new tab even when /uploads
-  // 502s. We also render an explicit <a> next to every image bubble so
-  // "open image" is always one click away — never trust the <img> alone.
+  // ponytail: <img src> can't send Authorization headers, but Flask gates
+  // /uploads/<id> on auth. We append the JWT as ?token=<jwt> so the
+  // browser can fetch the image without a custom header. Server verifies
+  // the token and serves the file.
+  const tok = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+  function authSrc(url) {
+    if (!url || !tok) return url
+    return url + (url.includes('?') ? '&' : '?') + 'token=' + tok
+  }
   if (m.role === 'patient') {
     return (
       <div className="bubble bubble-you">
         {m.image_url && (
-          <a href={m.image_url} target="_blank" rel="noopener noreferrer"
+          <a href={authSrc(m.image_url)} target="_blank" rel="noopener noreferrer"
              className="bubble-thumb">
-            <img src={m.image_url} alt=""
+            <img src={authSrc(m.image_url)} alt=""
                  onError={e => { e.currentTarget.style.opacity = '0.3' }} />
           </a>
         )}
@@ -215,9 +220,12 @@ export default function PatientChat() {
           )}
           {messages.map((m, i) => <Bubble key={i} m={m} />)}
           {needsValidation && (
-            <div className="row" style={{ alignSelf: 'flex-start', marginTop: 8 }}>
-              <Button variant="outline" onClick={() => validate('approve')}>Approve</Button>
-              <Button variant="outline" onClick={() => validate('reject')}>Reject</Button>
+            // ponytail: clinical validation belongs to a doctor, not the
+            // patient. We show a notice here and surface the actual
+            // approve/reject buttons in DoctorQueue.jsx where the assigned
+            // (or unassigned) doctor can claim and validate.
+            <div className="row meta" style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+              AI analysis pending doctor review.
             </div>
           )}
           {busy && <div className="bubble bubble-agent"><Spinner /></div>}
