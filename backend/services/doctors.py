@@ -22,6 +22,10 @@ def list_doctors(specialty: str = "", city: str = "", q: str = "") -> list:
             "city": d.get("city", ""), "rating": d.get("rating", 0.0),
             "cases_count": d.get("cases_count", 0), "bio": d.get("bio", ""),
             "verified": d.get("verified_at") is not None,
+            # ponytail: optional enrichment fields — empty for manually-
+            # created docs, populated by the Google Places seed script.
+            "phone": d.get("phone", ""),
+            "address": d.get("address", ""),
         })
     if q:
         ql = q.lower()
@@ -39,6 +43,11 @@ def get_doctor(doctor_id: str) -> Optional[dict]:
         "cases_count": d.get("cases_count", 0), "bio": d.get("bio", ""),
         "verified": d.get("verified_at") is not None,
         "availability": d.get("availability", []),
+        "phone": d.get("phone", ""),
+        "address": d.get("address", ""),
+        "lat": d.get("lat"),
+        "lng": d.get("lng"),
+        "source": d.get("source", "manual"),
     }
 
 
@@ -61,6 +70,13 @@ def list_appointments(user_id: str, role: str, status: str = "") -> list:
         flt["status"] = status
     out = []
     for a in dbm.appointments().find(flt).sort("scheduled_at", -1).limit(100):
+        # ponytail: hydrate the other party's display name + specialty so
+        # the appointment list isn't a wall of UUIDs. One Mongo lookup per
+        # appointment — fine at this scale; if volume grows, batch by
+        # collecting all patient_ids/doctor_ids first.
+        other_id = a["doctor_id"] if role == "patient" else a["patient_id"]
+        other = dbm.users().find_one({"_id": other_id},
+                                    {"name": 1, "specialty": 1, "role": 1}) or {}
         out.append({
             "id": a["_id"], "patient_id": a["patient_id"], "doctor_id": a["doctor_id"],
             "scheduled_at": a["scheduled_at"].isoformat(),
@@ -68,6 +84,9 @@ def list_appointments(user_id: str, role: str, status: str = "") -> list:
             "notes_from_patient": a.get("notes_from_patient", ""),
             "notes_from_doctor": a.get("notes_from_doctor", ""),
             "status": a["status"],
+            "other_name": other.get("name", ""),
+            "other_specialty": other.get("specialty", ""),
+            "other_role": other.get("role", ""),
         })
     return out
 

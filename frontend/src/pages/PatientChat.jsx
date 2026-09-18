@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../api'
 import { Button, Spinner } from '../ui'
 
@@ -66,6 +67,22 @@ export default function PatientChat() {
   const [imagePreview, setImagePreview] = useState(null)  // blob: URL for composer preview
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // ponytail: when the patient comes in via "Message doctor" from the
+  // Appointments page, ?to=<doctor_id> is set. We fetch that doctor's
+  // display name and use it to prefill the conversation's first message
+  // so the agent knows who the patient is consulting.
+  const [searchParams] = useSearchParams()
+  const toDoctorId = searchParams.get('to')
+  const [doctorContext, setDoctorContext] = useState(null)  // {name, specialty}
+
+  useEffect(() => {
+    if (!toDoctorId) return
+    let cancelled = false
+    apiFetch('/doctors/' + toDoctorId).then(d => {
+      if (!cancelled) setDoctorContext(d)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [toDoctorId])
   // ponytail: when send() loads the new conversation itself, mark the next
   // active-change as "already loaded" so the effect doesn't double-fetch.
   const skipNextLoadRef = useRef(false)
@@ -179,8 +196,23 @@ export default function PatientChat() {
         <div className="messages">
           {active === 'new' && (
             <div className="empty-state">
-              <div className="empty-title">Describe your symptoms</div>
-              <div className="empty-body">Ask a question or upload a medical image.</div>
+              {/* ponytail: when arriving from "Message doctor" the empty
+                  state shows the doctor context so the patient knows who
+                  they're talking to before they type. */}
+              {doctorContext && (
+                <div className="meta" style={{ marginBottom: 12 }}>
+                  Consulting <strong>Dr. {doctorContext.name}</strong>
+                  {doctorContext.specialty && ` · ${doctorContext.specialty}`}
+                </div>
+              )}
+              <div className="empty-title">
+                {doctorContext ? `Message Dr. ${doctorContext.name}` : 'Describe your symptoms'}
+              </div>
+              <div className="empty-body">
+                {doctorContext
+                  ? 'Send a question, symptoms, or an image for review.'
+                  : 'Ask a question or upload a medical image.'}
+              </div>
               <div className="empty-action col">
                 {STARTERS.map(s => <Button key={s} variant="outline" onClick={() => send(s)}>{s}</Button>)}
               </div>
