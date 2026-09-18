@@ -265,7 +265,15 @@ def create_agent_graph():
         """
         
         # Make the decision
-        decision = decision_chain.invoke({"input": decision_input})
+        try:
+            decision = decision_chain.invoke({"input": decision_input})
+        except Exception as e:
+            # ponytail: the LLM occasionally wraps its JSON in a think
+            # block, which JsonOutputParser rejects. Strip and retry before
+            # failing the whole request. Falls back to CONVERSATION_AGENT
+            # on persistent parse failure rather than 500.
+            print(f"Decision parse failed ({e}); falling back to CONVERSATION_AGENT")
+            decision = {"agent": "CONVERSATION_AGENT", "confidence": 0.5, "reasoning": "parse-failure fallback"}
 
         # Decided agent
         print(f"Decision: {decision['agent']}")

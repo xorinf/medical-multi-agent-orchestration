@@ -214,7 +214,13 @@ export default function PatientChat() {
                   : 'Ask a question or upload a medical image.'}
               </div>
               <div className="empty-action col">
-                {STARTERS.map(s => <Button key={s} variant="outline" onClick={() => send(s)}>{s}</Button>)}
+                {/* ponytail: hide the generic symptom starters when this
+                    chat is addressed to a specific doctor — those starters
+                    would create the wrong context (e.g., "I have chest
+                    pain" when actually consulting a dermatologist). */}
+                {!doctorContext && STARTERS.map(s =>
+                  <Button key={s} variant="outline" onClick={() => send(s)}>{s}</Button>
+                )}
               </div>
             </div>
           )}
