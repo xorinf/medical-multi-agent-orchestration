@@ -1,7 +1,127 @@
-/* Reset + base. Tokens + components live in ui.css. */
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
-body { background: #fafafa; color: #111;
-       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-       font-size: 14px; line-height: 1.45; }
-h1, h2, h3, h4, p { margin: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Color Palette — Light Mode */
+  --bg-primary: #FAF8F5; /* Warm ivory */
+  --bg-surface: #FFFFFF; /* Pure clean white */
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F4EFEA; /* Soft cream */
+  --bg-muted: #EAF0EB; /* Light sage */
+  
+  --border-subtle: #EBE5DC;
+  --border-strong: #D5CCC0;
+  --border-sage: #BACFC0;
+
+  --text-main: #1A201C; /* Charcoal */
+  --text-secondary: #56635A;
+  --text-muted: #839187;
+  --text-inverse: #FAF8F5;
+
+  --sage-accent: #3E6150;
+  --sage-hover: #324F41;
+  --sage-tint: #EAF0EB;
+
+  --charcoal-btn: #1A201C;
+  --charcoal-btn-hover: #2B352F;
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Color Palette — Dark Mode */
+  --bg-primary: #0E1210; /* Near-black with subtle forest tone */
+  --bg-surface: #141A17; /* Elegant dark charcoal */
+  --bg-card: #1A211D;
+  --bg-subtle: #212B26;
+  --bg-muted: #283630; /* Muted sage dark */
+
+  --border-subtle: #2A3630;
+  --border-strong: #384941;
+  --border-sage: #455C51;
+
+  --text-main: #F4EFEA; /* Warm off-white */
+  --text-secondary: #A3B2A9;
+  --text-muted: #74837A;
+  --text-inverse: #0E1210;
+
+  --sage-accent: #5D8872;
+  --sage-hover: #6E9B84;
+  --sage-tint: #1C2822;
+
+  --charcoal-btn: #E5E0D7;
+  --charcoal-btn-hover: #F4EFEA;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(131, 145, 135, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(131, 145, 135, 0.45);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--sage-accent);
+  outline-offset: 2px;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Restrained glass card */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass-panel {
+  background: rgba(20, 26, 23, 0.85);
+}

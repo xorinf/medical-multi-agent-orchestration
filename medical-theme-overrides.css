@@ -1,0 +1,602 @@
+/**
+ * ==============================================================================
+ * MEDASSIST MULTI-AGENT CLINICAL SYSTEM — UNIFIED THEME OVERRIDES
+ * ==============================================================================
+ * Architecture: Non-destructive, high-specificity visual override sheet.
+ * Preserves all underlying layouts, flex/grid systems, script hooks, and DOM classes.
+ *
+ * Feature Palette Matrix:
+ *  1. Global Framework: Clinical Soft Gray (#F4F6F9) & Navy Fill (#0B132B)
+ *  2. Chat Stream: Interactive Teal (#0EA5E9) & Stream Border (#0284C7)
+ *  3. RAG & Docling: Professional Slate (#1E293B) & Mint Emerald (#10B981)
+ *  4. Vision Triage: Electric Indigo Dashed (#6366F1) & Violet Loaders (#8B5CF6)
+ *  5. Verification: Cautious Amber Accent Border (#F59E0B)
+ * ==============================================================================
+ */
+
+/* ==========================================================================
+   0. DESIGN TOKENS & SYSTEM VARIABLES
+   ========================================================================== */
+:root {
+  /* 1. Global Platform Tokens */
+  --theme-global-bg: #F4F6F9;
+  --theme-global-text: #0F172A;
+  --theme-global-muted: #64748B;
+  --theme-sidebar-fill: #0B132B;
+  --theme-sidebar-text: #FFFFFF;
+  --theme-sidebar-muted: #94A3B8;
+  --theme-sidebar-border: rgba(255, 255, 255, 0.12);
+
+  /* 2. Conversational Agent Tokens */
+  --theme-chat-active-bg: #0EA5E9;
+  --theme-chat-active-text: #FFFFFF;
+  --theme-chat-ai-border: #0284C7;
+  --theme-chat-ai-surface: #FFFFFF;
+  --theme-chat-ai-text: #0F172A;
+  --theme-chat-tag-bg: rgba(14, 165, 233, 0.12);
+  --theme-chat-tag-text: #0284C7;
+
+  /* 3. RAG & Evidence Tokens */
+  --theme-rag-surface: #1E293B;
+  --theme-rag-text-mint: #10B981;
+  --theme-rag-border: #334155;
+  --theme-rag-glow: rgba(16, 185, 129, 0.2);
+
+  /* 4. Vision Triage Tokens */
+  --theme-vision-border: #6366F1;
+  --theme-vision-loader: #8B5CF6;
+  --theme-vision-loader-glow: rgba(139, 92, 246, 0.6);
+  --theme-vision-drop-tint: rgba(99, 102, 241, 0.05);
+
+  /* 5. Verification Tokens */
+  --theme-verification-border: #F59E0B;
+  --theme-verification-bg: rgba(245, 158, 11, 0.04);
+  --theme-verification-glow: rgba(245, 158, 11, 0.25);
+
+  /* Token Bridges for Existing Component Variables */
+  --navy-root: var(--theme-global-bg);
+  --clinical-bg: var(--theme-global-bg);
+}
+
+
+/* ==========================================================================
+   BLOCK 1: GLOBAL ARCHITECTURE & FRAMEWORK (CORE PLATFORM)
+   - Clinical soft gray canvas (#F4F6F9)
+   - Deep, authoritative navy sidebars (#0B132B) with crisp white text
+   ========================================================================== */
+
+/* Canvas Background Overrides */
+html,
+body,
+#root,
+.container-fluid,
+.workspace-grid,
+.page,
+.doctor,
+.auth-layout,
+[data-feature="core-platform"] {
+  background-color: var(--theme-global-bg) !important;
+  color: var(--theme-global-text);
+}
+
+/* Authoritative Deep Navy Sidebar Component Overrides */
+.sidebar,
+aside,
+.doctor-side,
+.workspace-grid > aside,
+.nav-sidebar,
+[role="complementary"],
+[data-feature="sidebar"] {
+  background-color: var(--theme-sidebar-fill) !important;
+  color: var(--theme-sidebar-text) !important;
+  border-color: var(--theme-sidebar-border) !important;
+}
+
+/* Typography Inside Sidebars */
+.sidebar h1, .sidebar h2, .sidebar h3, .sidebar h4, .sidebar h5, .sidebar h6,
+aside h1, aside h2, aside h3, aside h4, aside h5, aside h6,
+.doctor-side h1, .doctor-side h2, .doctor-side h3, .doctor-side h4, .doctor-side h5, .doctor-side h6,
+.sidebar-title,
+aside .eyebrow {
+  color: var(--theme-sidebar-text) !important;
+  border-color: var(--theme-sidebar-border) !important;
+}
+
+.sidebar p,
+.sidebar li,
+.sidebar span,
+.sidebar a,
+aside p,
+aside li,
+aside span,
+aside a:not(.btn-primary),
+.doctor-side p,
+.doctor-side span {
+  color: var(--theme-sidebar-text);
+}
+
+.sidebar .text-muted,
+aside .text-muted,
+aside p[style*="color: #94A3B8"],
+aside span[style*="color: #94A3B8"],
+.doctor-side .meta {
+  color: var(--theme-sidebar-muted) !important;
+}
+
+/* Sidebar Internal Cards & Modules */
+aside .card,
+.sidebar .card,
+.sidebar .agent-info,
+.doctor-side .topic {
+  background-color: #0E1A38 !important;
+  border: 1px solid var(--theme-sidebar-border) !important;
+  color: var(--theme-sidebar-text) !important;
+}
+
+aside .card:hover,
+.doctor-side .topic:hover {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Icons within Sidebar */
+.sidebar i,
+.sidebar svg,
+aside svg:not([color*="warn"]),
+aside i {
+  color: var(--theme-sidebar-text);
+  stroke: var(--theme-sidebar-text);
+}
+
+
+/* ==========================================================================
+   BLOCK 2: CHAT FEATURE (CONVERSATIONAL MEDICAL AGENT)
+   - Interactive bright teal (#0EA5E9) with white text for active elements
+   - Thin teal borders (#0284C7) for AI message streams
+   ========================================================================== */
+
+/* Message Container Wrappers */
+.chat-container,
+.chat-body,
+.chat-stream,
+.conversation-stream,
+.chat-messages,
+[data-feature="chat-stream"] {
+  background-color: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+/* Active Message Elements (Patient / User Message Bubbles & Active Prompts) */
+.user-message,
+.message.user-message,
+.bubble-patient,
+.message-bubble.bubble-patient,
+.bubble-you,
+.chat-stream .message-bubble.active,
+.btn-primary.active,
+.eco-card.active,
+[data-role="user-bubble"],
+[data-state="active-message"] {
+  background-color: var(--theme-chat-active-bg) !important;
+  background-image: none !important;
+  color: var(--theme-chat-active-text) !important;
+  border: 1px solid var(--theme-chat-active-bg) !important;
+  box-shadow: 0 4px 14px -2px rgba(14, 165, 233, 0.35) !important;
+}
+
+/* Ensure Active Element Text & Descendants Are Crisp White */
+.user-message *,
+.bubble-patient *,
+.bubble-you *,
+.message.user-message p,
+.message-bubble.bubble-patient p,
+.message-bubble.bubble-patient span,
+.message-bubble.bubble-patient div {
+  color: var(--theme-chat-active-text) !important;
+}
+
+/* Active Send Controls & Floating Triggers */
+.chat-footer button[type="submit"],
+.chat-footer .btn-primary,
+button#send-btn,
+button.send-action-btn {
+  background-color: var(--theme-chat-active-bg) !important;
+  border-color: var(--theme-chat-active-bg) !important;
+  color: var(--theme-chat-active-text) !important;
+  box-shadow: 0 2px 10px rgba(14, 165, 233, 0.3) !important;
+}
+
+.chat-footer button[type="submit"]:hover,
+.chat-footer .btn-primary:hover {
+  background-color: #0284C7 !important;
+  border-color: #0284C7 !important;
+}
+
+/* AI Message Streams (Border Override: Thin Teal #0284C7) */
+.assistant-message,
+.message.assistant-message,
+.bubble-ai,
+.message-bubble.bubble-ai,
+.bubble-agent,
+.ai-response-stream,
+[data-role="ai-bubble"],
+[data-stream="ai"] {
+  border: 1px solid var(--theme-chat-ai-border) !important;
+  background-color: var(--theme-chat-ai-surface) !important;
+  color: var(--theme-chat-ai-text) !important;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.08) !important;
+}
+
+.assistant-message *,
+.bubble-ai *,
+.bubble-agent * {
+  color: var(--theme-chat-ai-text);
+}
+
+/* Agent Signatures, Badges & Metas in AI Stream */
+.agent-tag,
+.agent-signature,
+.bubble-meta,
+.assistant-message .agent-tag {
+  background-color: var(--theme-chat-tag-bg) !important;
+  color: var(--theme-chat-tag-text) !important;
+  border: 1px solid rgba(2, 132, 199, 0.3) !important;
+  font-weight: 700;
+}
+
+.agent-signature svg,
+.agent-signature i {
+  color: var(--theme-chat-tag-text) !important;
+  stroke: var(--theme-chat-tag-text) !important;
+}
+
+/* Thinking Indicator Dots & Waveforms within Stream */
+.thinking .dot,
+.waveform-bars .wave-bar {
+  background-color: var(--theme-chat-active-bg) !important;
+}
+
+/* Input Focus Ring Highlighting */
+.message-input:focus,
+.chat-footer input:focus,
+.chat-footer textarea:focus {
+  border-color: var(--theme-chat-active-bg) !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.25) !important;
+  outline: none !important;
+}
+
+
+/* ==========================================================================
+   BLOCK 3: RAG FEATURE (KNOWLEDGE & REFERENCE LINKS)
+   - Professional slate surface (#1E293B)
+   - Mint emerald green text (#10B981) for logs, citations, and data grids
+   ========================================================================== */
+
+/* Search Log Terminals & Reasoning Drawers */
+.thinking-drawer,
+.thinking-body,
+pre.thinking-body,
+.terminal,
+.log-terminal,
+.search-logs,
+.console-log,
+.rag-terminal,
+[data-feature="rag-terminal"],
+[data-feature="search-logs"] {
+  background-color: var(--theme-rag-surface) !important;
+  color: var(--theme-rag-text-mint) !important;
+  border: 1px solid var(--theme-rag-border) !important;
+  border-left: 3px solid var(--theme-rag-text-mint) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace !important;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.thinking-drawer *,
+.thinking-body *,
+.rag-terminal * {
+  color: var(--theme-rag-text-mint) !important;
+}
+
+/* Document References & Citation Cards */
+.source-tag,
+a.source-tag,
+.citation-link,
+.doc-reference,
+.reference-link,
+.rag-citation,
+.reference-images a,
+[data-feature="doc-reference"] {
+  background-color: var(--theme-rag-surface) !important;
+  color: var(--theme-rag-text-mint) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  transition: all 180ms ease-in-out;
+}
+
+.source-tag:hover,
+a.source-tag:hover,
+.citation-link:hover {
+  border-color: var(--theme-rag-text-mint) !important;
+  box-shadow: 0 0 12px var(--theme-rag-glow) !important;
+  transform: translateY(-1px);
+}
+
+.source-tag *,
+.source-tag span,
+.source-tag svg,
+.source-tag i {
+  color: var(--theme-rag-text-mint) !important;
+  stroke: var(--theme-rag-text-mint) !important;
+}
+
+/* Evidence Trail Containers & Steps */
+.evidence-trail .trail-content,
+.trail-step .trail-content {
+  background-color: var(--theme-rag-surface) !important;
+  border: 1px solid var(--theme-rag-border) !important;
+  color: #F1F5F9;
+}
+
+.evidence-trail .trail-content * {
+  color: #F1F5F9;
+}
+
+.trail-step .trail-badge {
+  background-color: var(--theme-rag-surface) !important;
+  border-color: var(--theme-rag-text-mint) !important;
+  color: var(--theme-rag-text-mint) !important;
+}
+
+/* Docling Data Grids & Parsed Clinical Tables */
+.docling-grid,
+.data-grid,
+.docling-table,
+.parsed-grid,
+.message table,
+.clinical-markdown table,
+.table-responsive table,
+[data-feature="docling-grid"] {
+  background-color: var(--theme-rag-surface) !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  border: 1px solid var(--theme-rag-border) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  color: var(--theme-rag-text-mint) !important;
+  width: 100%;
+}
+
+/* Table Headers */
+.docling-grid th,
+.data-grid th,
+.message table th,
+.clinical-markdown table th,
+.table-responsive table th {
+  background-color: #0F172A !important;
+  color: var(--theme-rag-text-mint) !important;
+  border-bottom: 1px solid var(--theme-rag-border) !important;
+  border-right: 1px solid var(--theme-rag-border) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  padding: 10px 14px !important;
+}
+
+/* Table Cells */
+.docling-grid td,
+.data-grid td,
+.message table td,
+.clinical-markdown table td,
+.table-responsive table td {
+  background-color: var(--theme-rag-surface) !important;
+  color: #E2E8F0 !important;
+  border-bottom: 1px solid var(--theme-rag-border) !important;
+  border-right: 1px solid var(--theme-rag-border) !important;
+  padding: 9px 14px !important;
+}
+
+/* Table Cell References, Codes, and Highlights */
+.docling-grid td a,
+.docling-grid td code,
+.message table td a,
+.clinical-markdown table td a,
+.clinical-markdown table td code {
+  color: var(--theme-rag-text-mint) !important;
+  text-decoration: underline;
+}
+
+/* Alternating Row Striping & Hover */
+.docling-grid tr:nth-child(even) td,
+.data-grid tr:nth-child(even) td,
+.message table tr:nth-child(even) td,
+.clinical-markdown table tr:nth-child(even) td {
+  background-color: #162234 !important;
+}
+
+.docling-grid tr:hover td,
+.data-grid tr:hover td,
+.message table tr:hover td,
+.clinical-markdown table tr:hover td {
+  background-color: #24354F !important;
+}
+
+
+/* ==========================================================================
+   BLOCK 4: VISION TRIAGE FEATURE (MEDICAL IMAGE UPLOADS)
+   - Electric indigo dashed border (#6366F1)
+   - High-visibility violet accent loaders (#8B5CF6)
+   ========================================================================== */
+
+/* Image Containers, Drop-Zones, & Workstation Layers */
+.file-upload-container,
+.preview-container,
+.image-container,
+.image-dropzone,
+.dropzone,
+.file-drop-zone,
+.upload-box,
+.imaging-workstation,
+.imaging-viewport,
+.imaging-pane,
+[data-dropzone],
+[data-feature="vision-triage"] {
+  border: 2px dashed var(--theme-vision-border) !important;
+  border-radius: 12px;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Container Inner Previews */
+.preview-image,
+.result-image,
+.imaging-pane img,
+.image-side-by-side .image-container img {
+  border: 2px dashed var(--theme-vision-border) !important;
+  border-radius: 8px;
+}
+
+/* Drag-over & Interactive Hover State for Drop-Zones */
+.dropzone:hover,
+.file-drop-zone:hover,
+.image-dropzone:hover,
+.imaging-viewport:hover,
+.dropzone.dragover,
+[data-dropzone].dragging {
+  border-color: #818CF8 !important;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important;
+  background-color: var(--theme-vision-drop-tint);
+}
+
+/* Processing Layout Layers & Reticles */
+.imaging-reticle,
+.processing-overlay,
+.vision-processing-layer,
+.scanning-overlay,
+[data-feature="processing-layer"] {
+  border: 1.5px dashed var(--theme-vision-border) !important;
+  box-shadow: inset 0 0 24px rgba(99, 102, 241, 0.25);
+  pointer-events: none;
+}
+
+/* High-Visibility Violet Accent Loaders (#8B5CF6) */
+.fa-spinner,
+.fa-spin,
+.spinner,
+.loader,
+.imaging-loader,
+.processing-spinner,
+.scanline,
+[data-role="loader"],
+[data-feature="vision-loader"] {
+  color: var(--theme-vision-loader) !important;
+  border-top-color: var(--theme-vision-loader) !important;
+  filter: drop-shadow(0 0 10px var(--theme-vision-loader-glow)) !important;
+}
+
+/* Custom Violet Spinner Animation for Pure CSS Loaders */
+@keyframes violetAccentPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7);
+    border-color: var(--theme-vision-loader);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(139, 92, 246, 0);
+    border-color: #A78BFA;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+    border-color: var(--theme-vision-loader);
+  }
+}
+
+.imaging-workstation.is-processing,
+.dropzone.loading {
+  animation: violetAccentPulse 1.8s infinite ease-out;
+}
+
+
+/* ==========================================================================
+   BLOCK 5: VERIFICATION FEATURE (HUMAN-IN-THE-LOOP ACTIONS)
+   - Warm, cautious amber accent border (#F59E0B)
+   - Distinct global layout separation for validation cards and approval zones
+   ========================================================================== */
+
+/* Human-in-the-Loop Validation Cards & Approval Zones */
+.verification-card,
+.approval-zone,
+.hitl-card,
+.human-validation,
+.validation-panel,
+.validation-container,
+[data-feature="verification"],
+[data-role="approval-zone"],
+.message .border.rounded.bg-light,
+div:has(> .validate-btn),
+div:has(> p > strong:contains("Human Validation")) {
+  border: 2px solid var(--theme-verification-border) !important;
+  border-radius: 12px !important;
+  background-color: var(--theme-verification-bg) !important;
+  box-shadow: 0 4px 20px -2px var(--theme-verification-glow), 0 0 0 1px rgba(245, 158, 11, 0.2) !important;
+  margin-top: 18px !important;
+  margin-bottom: 18px !important;
+  padding: 18px !important;
+  position: relative !important;
+}
+
+/* Dedicated Style for React ImagingWorkstation HITL Area */
+.imaging-workstation div[style*="border-top: 1px solid rgba(245, 158, 11"],
+.imaging-workstation div[style*="background: #101D31"] {
+  border: 2px solid var(--theme-verification-border) !important;
+  border-radius: 0 0 12px 12px !important;
+  background-color: #121B2B !important;
+  box-shadow: 0 -4px 18px -2px var(--theme-verification-glow) !important;
+}
+
+/* Verification Header & Cautious Warning Indicators */
+.verification-card p,
+.approval-zone p,
+.hitl-card p,
+.verification-card strong,
+.approval-zone strong {
+  color: #F8FAFC !important;
+}
+
+.verification-card .fa-exclamation-triangle,
+.approval-zone svg,
+.approval-zone .pill[style*="warn"] {
+  color: var(--theme-verification-border) !important;
+  border-color: var(--theme-verification-border) !important;
+}
+
+/* Approval Zone Action Buttons */
+.validate-btn[data-validation="yes"],
+.approval-zone .btn-success {
+  background-color: #059669 !important;
+  border-color: #059669 !important;
+  color: #FFFFFF !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3) !important;
+}
+
+.validate-btn[data-validation="no"],
+.approval-zone .btn-danger {
+  background-color: #DC2626 !important;
+  border-color: #DC2626 !important;
+  color: #FFFFFF !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
+}
+
+/* Verification Comments Textarea */
+.validation-comments,
+.approval-zone textarea {
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  background-color: #0B132B !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+}
+
+.validation-comments:focus,
+.approval-zone textarea:focus {
+  border-color: var(--theme-verification-border) !important;
+  box-shadow: 0 0 0 3px var(--theme-verification-glow) !important;
+  outline: none !important;
+}
