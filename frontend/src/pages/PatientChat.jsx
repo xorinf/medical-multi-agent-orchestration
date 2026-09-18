@@ -26,24 +26,19 @@ function ThinkingBlock({ text }) {
 }
 
 function Bubble({ m }) {
-  // ponytail: onError fallback swaps a blob: or broken src for a small
-  // "image" placeholder chip so the user knows the upload exists even when
-  // /uploads/<id> 502s (Vite proxy timeout, Flask restart, etc.).
+  // ponytail: onError fallback swaps a broken src for a clickable link so
+  // the user can still open the image in a new tab even when /uploads
+  // 502s. We also render an explicit <a> next to every image bubble so
+  // "open image" is always one click away — never trust the <img> alone.
   if (m.role === 'patient') {
     return (
       <div className="bubble bubble-you">
         {m.image_url && (
-          <img src={m.image_url} alt=""
-               onError={e => {
-                 e.currentTarget.style.display = 'none';
-                 const chip = e.currentTarget.nextElementSibling;
-                 if (chip && chip.classList.contains('attach-fallback')) {
-                   chip.style.display = 'inline-flex';
-                 }
-               }} />
-        )}
-        {m.image_url && (
-          <span className="attach-fallback" style={{ display: 'none' }}>image</span>
+          <a href={m.image_url} target="_blank" rel="noopener noreferrer"
+             className="bubble-thumb">
+            <img src={m.image_url} alt=""
+                 onError={e => { e.currentTarget.style.opacity = '0.3' }} />
+          </a>
         )}
         <div>{m.content}</div>
       </div>

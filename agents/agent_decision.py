@@ -64,6 +64,11 @@ class _BoundedMemorySaver(MemorySaver):
 
 memory = _BoundedMemorySaver()
 
+
+# ponytail: module-level singleton for MedicalRAG so we don't reload the
+# Docling + reranker + PubMedBERT pipeline on every RAG-classified chat.
+_rag_agent_cache = None
+
 import cv2
 import numpy as np
 
@@ -73,9 +78,6 @@ load_dotenv()
 
 # Load configuration
 config = Config()
-
-# Initialize memory
-memory = MemorySaver()
 
 # Specify a thread
 thread_config = {"configurable": {"thread_id": "default"}}
@@ -132,6 +134,10 @@ class AgentState(MessagesState):
     current_input: Optional[Union[str, Dict]]  # Input to be processed
     has_image: bool  # Whether the current input contains an image
     image_type: Optional[str]  # Type of medical image if present
+    image_description: Optional[str]  # ponytail: vision-model summary of the image,
+                                       # threaded into the conversation so downstream
+                                       # agents (and the final answer) can reference
+                                       # what's actually in the picture.
     output: Optional[str]  # Final output to user
     needs_human_validation: bool  # Whether human validation is required
     retrieval_confidence: float  # Confidence in retrieval (for RAG agent)
@@ -202,12 +208,17 @@ def create_agent_graph():
             image_path = current_input.get("image", None)
             image_type_response = AgentConfig.image_analyzer.analyze_image(image_path)
             image_type = image_type_response['image_type']
+            # ponytail: keep the vision model's reasoning so downstream agents
+            # can answer "what's in the image" instead of just acknowledging
+            # that an upload exists.
+            image_description = (image_type_response.get('reasoning') or '').strip()
             print("ANALYZED IMAGE TYPE: ", image_type)
-        
+
         return {
             **state,
             "has_image": has_image,
             "image_type": image_type,
+            "image_description": image_description if has_image else "",
             "bypass_routing": False  # Explicitly set to False for normal flow
         }
     
@@ -248,6 +259,7 @@ def create_agent_graph():
 
         Has image: {has_image}
         Image type: {image_type if has_image else 'None'}
+        Image description: {state.get('image_description', '')}
 
         Based on this information, which agent should handle this query?
         """
@@ -278,6 +290,10 @@ def create_agent_graph():
 
         messages = state["messages"]
         current_input = state["current_input"]
+        # ponytail: pull image flags from state — they're only set inside
+        # analyze_input's local scope, so we re-read them here.
+        has_image = state.get("has_image", False)
+        image_type = state.get("image_type")
         
         # Prepare input for decision model
         input_text = ""
@@ -334,6 +350,11 @@ def create_agent_graph():
         - Recommend consulting a **licensed healthcare professional** for serious medical concerns.
         - Avoid providing **medical diagnoses** or **prescriptions**—stick to general knowledge.
 
+        ### Image handling:
+        - If the user uploaded an image, a vision model has already classified it as "{image_type if has_image else 'None'}".
+        - Here is the vision model's description of the image: {state.get('image_description', '(none)')}
+        - Reference what's actually visible in the image when answering.
+
         ### Response Format:
         - Maintain a **conversational yet professional tone**.
         - Use **bullet points or numbered lists** for clarity when needed.
@@ -367,10 +388,14 @@ def create_agent_graph():
     def run_rag_agent(state: AgentState) -> AgentState:
         """Handle medical knowledge queries using RAG."""
         # Initialize the RAG agent
-
         print(f"Selected agent: RAG_AGENT")
 
-        rag_agent = MedicalRAG(config)
+        # ponytail: MedicalRAG is expensive to instantiate (loads Docling,
+        # reranker, PubMedBERT). Cache it module-level — it's stateless.
+        global _rag_agent_cache
+        if _rag_agent_cache is None:
+            _rag_agent_cache = MedicalRAG(config)
+        rag_agent = _rag_agent_cache
         
         messages = state["messages"]
         query = state["current_input"]
