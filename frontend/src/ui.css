@@ -311,7 +311,8 @@ p { margin: 0; }
 .bubble-agent { background: var(--color-bg-2); color: var(--color-ink); align-self: flex-start; }
 .bubble-meta { font-size: 11px; color: var(--color-muted); margin-top: 4px; opacity: 0.8; }
 .bubble-you .bubble-meta { color: rgba(255,255,255,0.7); }
-.bubble img { display: block; max-width: 240px; border-radius: var(--radius-md); margin-bottom: 6px; }
+.bubble img { display: block; max-width: 240px; max-height: 240px; border-radius: var(--radius-md); margin-bottom: 6px; object-fit: cover; }
+.attach-fallback { display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-bg-2); color: var(--color-muted); font-size: 12px; margin-bottom: 6px; }
 
 /* thinking block */
 .thinking { margin-top: 10px; }

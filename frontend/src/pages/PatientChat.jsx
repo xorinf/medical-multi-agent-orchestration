@@ -25,14 +25,25 @@ function ThinkingBlock({ text }) {
 }
 
 function Bubble({ m }) {
+  // ponytail: onError fallback swaps a blob: or broken src for a small
+  // "image" placeholder chip so the user knows the upload exists even when
+  // /uploads/<id> 502s (Vite proxy timeout, Flask restart, etc.).
   if (m.role === 'patient') {
-    // ponytail: prefer the server URL (survives reload); fall back to a
-    // blob: URL if the message came straight from the optimistic add before
-    // the upload finished. Both render the same image — src swap is what
-    // matters, not which kind of URL.
     return (
       <div className="bubble bubble-you">
-        {m.image_url && <img src={m.image_url} alt="" />}
+        {m.image_url && (
+          <img src={m.image_url} alt=""
+               onError={e => {
+                 e.currentTarget.style.display = 'none';
+                 const chip = e.currentTarget.nextElementSibling;
+                 if (chip && chip.classList.contains('attach-fallback')) {
+                   chip.style.display = 'inline-flex';
+                 }
+               }} />
+        )}
+        {m.image_url && (
+          <span className="attach-fallback" style={{ display: 'none' }}>image</span>
+        )}
         <div>{m.content}</div>
       </div>
     )
