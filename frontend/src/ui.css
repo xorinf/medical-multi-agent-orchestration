@@ -241,6 +241,8 @@ p { margin: 0; }
 .auth-form-wrap { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 20px; }
 .auth-tabs { width: 100%; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; }
 .auth-tabs .pill { width: 100%; justify-content: center; padding: 10px 12px; font-size: 14px; }
+.demo-logins { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; padding: 8px 12px; border: 1px dashed var(--color-line); border-radius: var(--radius-md); background: var(--color-bg-2); flex-wrap: wrap; }
+.demo-label { font-size: 12px; margin-right: 4px; }
 .auth-side-form { display: flex; }
 .form-card { display: flex; flex-direction: column; gap: 16px; width: 100%; padding: 28px; }
 .form-card .col { gap: 14px; }
