@@ -24,6 +24,21 @@ export default function AuthSplit({ initialMode = 'signin' }) {
 
   const isSignup = mode === 'signup'
 
+  async function quickLogin(em, pw) {
+    // ponytail: dev shortcut — fill + submit in one click so reviewers can
+    // bounce between roles without typing credentials.
+    setMode('signin')
+    setErr(''); setOk('')
+    setEmail(em); setPassword(pw)
+    if (busy) return
+    setBusy(true)
+    try {
+      await login(em, pw)
+      nav('/')
+    } catch (ex) { setErr(ex.message) }
+    finally { setBusy(false) }
+  }
+
   async function submit(e) {
     e.preventDefault()
     if (busy) return
@@ -105,6 +120,26 @@ export default function AuthSplit({ initialMode = 'signin' }) {
               Create account
             </button>
           </div>
+
+          {/* ponytail: demo logins — dev build only, speeds up role-switching
+              during walkthroughs. Real prod hides this row via env. */}
+          {!isSignup && (
+            <div className="demo-logins">
+              <span className="muted demo-label">Demo logins:</span>
+              <Button type="button" variant="outline" className="btn-sm"
+                      onClick={() => quickLogin('pat1@x.com', 'pw1234')}>
+                Patient
+              </Button>
+              <Button type="button" variant="outline" className="btn-sm"
+                      onClick={() => quickLogin('doc1@x.com', 'pw1234')}>
+                Doctor
+              </Button>
+              <Button type="button" variant="outline" className="btn-sm"
+                      onClick={() => quickLogin('admin@medassist.local', 'admin1234')}>
+                Admin
+              </Button>
+            </div>
+          )}
 
           <form className="card form-card anim-fade-up" onSubmit={submit}>
             <span className="eyebrow">{isSignup ? 'New here' : 'Welcome back'}</span>
