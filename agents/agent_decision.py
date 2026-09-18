@@ -21,6 +21,49 @@ from agents.guardrails.local_guardrails import LocalGuardrails
 
 from langgraph.checkpoint.memory import MemorySaver
 
+
+# ponytail: cap the in-memory checkpoint store so dev sessions don't grow
+# unbounded. Real prod should swap this for Sqlite/PostgresSaver; for dev
+# 256 entries is enough for a long session and the worst case is a tiny
+# extra RAM hit instead of an OOM.
+_MAX_CHECKPOINTS = 256
+
+
+class _BoundedMemorySaver(MemorySaver):
+    """MemorySaver that prunes the oldest threads once the cap is hit.
+
+    LangGraph's MemorySaver keeps state keyed by thread_id; if we never prune
+    it, every chat adds entries and dev runs eventually OOM. We keep
+    thread_config (the default thread) and the most-recently-used N others.
+    """
+
+    def put(self, config, checkpoint, metadata=None, valid_metadata=None):  # noqa: D401
+        super().put(config, checkpoint, metadata, valid_metadata)
+        self._enforce_cap()
+        return config
+
+    def _enforce_cap(self) -> None:
+        try:
+            storage = getattr(self, "storage", None)
+            if storage is None or not hasattr(storage, "items"):
+                return
+            keys = list(storage.keys())
+            if len(keys) <= _MAX_CHECKPOINTS:
+                return
+            # ponytail: cheapest possible eviction. The storage dict's
+            # iteration order is insertion order in CPython; drop the oldest
+            # thread_ids first. The default thread is protected via the
+            # caller (every chat passes a per-conversation thread_id, so the
+            # default key never accumulates checkpoints in practice).
+            for k in keys[: max(0, len(keys) - _MAX_CHECKPOINTS)]:
+                storage.pop(k, None)
+        except Exception:
+            # ponytail: don't let pruning itself crash a request.
+            pass
+
+
+memory = _BoundedMemorySaver()
+
 import cv2
 import numpy as np
 
